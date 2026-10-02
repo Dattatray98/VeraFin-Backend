@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "es2020",                          /* Specify ECMAScript target version */
+    "module": "NodeNext",                        /* Specify module code generation */
+    "moduleResolution": "NodeNext",              /* Determine how modules get resolved */
+    "rootDir": "./src",                          /* Specify the root folder of input files */
+    "outDir": "./dist",                          /* Redirect output structure to the directory */
+    "strict": true,                              /* Enable all strict type-checking options */
+    "esModuleInterop": true                      /* Emit additional JavaScript to ease importing CommonJS modules */
+  },
+  "include": ["src/**/*"]                        /* Specifiy what files to compile */
+}
