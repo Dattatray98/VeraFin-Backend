@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.30",
+    "cloudflare": "github:cloudflare/cloudflare-typescript",
     "dotenv": "^18.0.5",
     "express": "^5.2.1"
   },
