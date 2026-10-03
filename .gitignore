@@ -141,3 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+
+instruction.md
+project.md
+
+# Local evidence vector database
+data/evidence/lancedb/
