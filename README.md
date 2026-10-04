@@ -36,11 +36,11 @@ Copy `.env.example` to `.env` and replace the placeholders. `MONGO_URI` and `JWT
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `CHROMA_URL` | Chroma HTTP server | `http://localhost:8000` |
+| `CHROMA_API_KEY` | Chroma Cloud API key | Required for cloud |
 | `CHROMA_TENANT` | Chroma tenant | `default_tenant` |
 | `CHROMA_DATABASE` | Chroma database | `default_database` |
 | `CHROMA_COLLECTION` | Verification evidence collection | `verafin_evidence` |
-| `CHROMA_TOKEN` | Optional Chroma server token | None |
+| `CHROMA_TOKEN` | Optional token alias for `CHROMA_API_KEY` | None |
 | `PDF_INPUT_DIRECTORY` | Folder watched for new PDFs | `data/inputdata` |
 | `CORS_ORIGIN` | Comma-separated allowed frontend origins, or `*` | `*` |
 | `LLM_PROVIDER` | LLM backend: `huggingface` or `ollama` | `huggingface` |
@@ -52,6 +52,8 @@ Copy `.env.example` to `.env` and replace the placeholders. `MONGO_URI` and `JWT
 | `JWT_SECRET` | Secret used to validate authenticated API requests | Required |
 | `OLLAMA_URL` | Ollama server base URL | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Installed local Ollama model name | None |
+
+The backend initializes Chroma Cloud through the TypeScript `CloudClient` in `src/config/chroma.ts`. Set `CHROMA_API_KEY`, `CHROMA_TENANT`, and `CHROMA_DATABASE`; the collection is created on first use. `CHROMA_TOKEN` is accepted as an API key alias.
 
 Keep API keys in the backend environment and do not commit `.env`. Chroma stores its persistent data in the path used when starting its server. The watcher keeps only hash/status metadata under `data/metadata/` and does not create extracted PDF copies.
 

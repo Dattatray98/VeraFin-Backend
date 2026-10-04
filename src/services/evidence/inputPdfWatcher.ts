@@ -6,7 +6,7 @@ import { basename, dirname, extname, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { generateEmbedding } from "../AI_Models/embeddingModel.js";
-import { countEvidenceChunks, hasEvidenceForDocument, replaceEvidenceForDocument } from "./chromaEvidenceStore.js";
+import { beginEvidenceReplacement, countEvidenceChunks, hasEvidenceForDocument } from "./chromaEvidenceStore.js";
 import type { EvidenceChunkInput } from "../../types/evidence.js";
 
 const execFile = promisify(execFileCallback);
@@ -150,28 +150,40 @@ const processPdf = async (filePath: string, state: IngestionState): Promise<void
     console.log(`[PDF-INGEST] ${relativePath} | extracted pages=${pages.length} chars=${extractedText.length} chunks=${chunkRows.length}`);
     const retrievedAt = new Date().toISOString();
     const chunks: EvidenceChunkInput[] = [];
-    for (let chunkIndex = 0; chunkIndex < chunkRows.length; chunkIndex += 1) {
-        const chunk = chunkRows[chunkIndex];
-        const id = sha256(`${documentId}:${contentHash}:${chunkIndex}`).slice(0, 40);
-        chunks.push({
-            id,
-            vector: await generateEmbedding(chunk.content),
-            content: chunk.content,
-            documentId,
-            title,
-            documentType: "uploaded_pdf",
-            sourceOrganization: "User-provided PDF",
-            sourceUrl: pathToFileURL(filePath).toString(),
-            authorityLevel: "unverified",
-            publishedAt: null,
-            retrievedAt,
-            chunkIndex,
-            pageNumber: chunk.pageNumber,
-            isMock: false
-        });
+    const replacement = await beginEvidenceReplacement(documentId);
+    try {
+        for (let chunkIndex = 0; chunkIndex < chunkRows.length; chunkIndex += 1) {
+            const chunk = chunkRows[chunkIndex];
+            const id = sha256(`${documentId}:${contentHash}:${chunkIndex}`).slice(0, 40);
+            const evidenceChunk: EvidenceChunkInput = {
+                id,
+                vector: await generateEmbedding(chunk.content),
+                content: chunk.content,
+                documentId,
+                title,
+                documentType: "uploaded_pdf",
+                sourceOrganization: "User-provided PDF",
+                sourceUrl: pathToFileURL(filePath).toString(),
+                authorityLevel: "unverified",
+                publishedAt: null,
+                retrievedAt,
+                chunkIndex,
+                pageNumber: chunk.pageNumber,
+                isMock: false
+            };
+            await replacement.storeChunk(evidenceChunk);
+            chunks.push(evidenceChunk);
+        }
+        await replacement.commit();
+    } catch (error) {
+        try {
+            await replacement.rollback();
+        } catch (rollbackError) {
+            console.error(`[PDF-INGEST] ${relativePath} | rollback failed`, rollbackError);
+        }
+        throw error;
     }
 
-    await replaceEvidenceForDocument(documentId, chunks);
     state.files[relativePath] = {
         contentHash,
         documentId,
