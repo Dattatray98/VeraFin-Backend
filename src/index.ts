@@ -15,6 +15,9 @@ connectDB();
 
 app.use(express.json());
 
+app.use((req: Request, res: Response, next) => {
+    const requestOrigin = req.headers.origin;
+    const allowAnyOrigin = allowedOrigins.includes("*");
 
 app.use("/api/users", userRoutes);
 app.use("/api/verification", verificationRoutes);
