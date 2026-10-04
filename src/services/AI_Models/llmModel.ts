@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { InferenceClient } from "@huggingface/inference";
 
 const HUGGING_FACE_URL = "https://router.huggingface.co/v1/chat/completions";
 const DEFAULT_HUGGING_FACE_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash:novita";
@@ -99,3 +100,30 @@ export const generateText = async (prompt: string): Promise<string> => {
     throw new Error(`Unsupported LLM_PROVIDER: ${provider}`);
 };
 
+/** Read text from an image with a vision-language model. */
+export const extractImageText = async (image: Buffer, mimeType: string, prompt: string): Promise<string> => {
+    const token = process.env.HF_TOKEN;
+    if (!token) throw new Error("HF_TOKEN is missing");
+    if (!image.length) throw new Error("Image data is empty");
+
+    const client = new InferenceClient(token);
+    const response = await client.chatCompletion({
+        model: process.env.HF_VISION_MODEL ?? "Qwen/Qwen2.5-VL-3B-Instruct",
+        messages: [{
+            role: "user",
+            content: [
+                { type: "text", text: prompt },
+                {
+                    type: "image_url",
+                    image_url: { url: `data:${mimeType};base64,${image.toString("base64")}` }
+                }
+            ]
+        }],
+        temperature: 0,
+        max_tokens: 2048
+    });
+
+    const text = response.choices[0]?.message.content?.trim();
+    if (!text) throw new Error("Vision model returned no text");
+    return text;
+};

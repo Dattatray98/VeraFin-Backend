@@ -134,4 +134,6 @@ export interface VerificationResult {
     sources?: SourceCheckItem[];
     claims: ClaimItem[];
     risk_indicators: RiskIndicatorItem[];
+    /** Full trace of extraction, retrieval, analysis, risk, and explanation stages. */
+    pipeline?: Record<string, unknown>;
 }

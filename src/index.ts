@@ -1,54 +1,52 @@
+import "dotenv/config";
 import express from "express";
 import type { Request, Response } from "express";
-import dotenv from "dotenv";
-import Cloudflare from "cloudflare";
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import verificationRoutes from "./routes/verificationRoutes.js";
-
-dotenv.config();
+import { startInputPdfWatcher } from "./services/evidence/inputPdfWatcher.js";
 
 const app = express();
-const PORT = 5000;
+const PORT = Number(process.env.PORT ?? 5000);
 
-connectDB();
-
-app.use(express.json());
+const allowedOrigins = (process.env.CORS_ORIGIN ?? "*")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 app.use((req: Request, res: Response, next) => {
-    const requestOrigin = req.headers.origin;
-    const allowAnyOrigin = allowedOrigins.includes("*");
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes("*")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+    } else if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.sendStatus(204);
+        return;
+    }
+    next();
+});
 
+app.use(express.json({ limit: "1mb" }));
 app.use("/api/users", userRoutes);
 app.use("/api/verification", verificationRoutes);
 
-
-app.get("/", async (req: Request, res: Response) => {
-    try {
-        const client = new Cloudflare({
-            apiToken: process.env["CLOUDFLARE_API_TOKEN"],
-        });
-
-        const zone = await client.zones.create({
-            account: {
-                id: "023e105f4ecef8ad9ca31a8372d0c353",
-            },
-            name: "example.com",
-            type: "full",
-        });
-
-        console.log(zone.id);
-
-        res.status(200).json({
-            hello: "world",
-        });
-    } catch (e) {
-        res.status(500).json({
-            message: e,
-        });
-    }
+app.get("/", (_req, res) => {
+    res.status(200).json({ status: "ok", evidenceSource: "chroma" });
 });
 
-app.listen(PORT, () => {
-    console.log(`server is running at: http://localhost:${PORT}`);
+const startServer = async (): Promise<void> => {
+    if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET is required for authenticated routes");
+    await connectDB();
+    await startInputPdfWatcher();
+    app.listen(PORT, () => console.log(`Server is running at http://localhost:${PORT}`));
+};
+
+void startServer().catch((error: unknown) => {
+    console.error("Server startup failed:", error);
+    process.exitCode = 1;
 });

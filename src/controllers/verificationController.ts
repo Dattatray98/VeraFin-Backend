@@ -53,7 +53,7 @@ export const submitVerification = async (
             hasImageFile ? "image" : hasAudioFile ? "voice" : "text";
 
         // ── Validate: source is always required ───────────────────────────────
-        if (!source) {
+        if (typeof source !== "string" || !source.trim()) {
             // Clean up uploaded file if validation fails
             if (req.file?.path && fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
@@ -71,6 +71,14 @@ export const submitVerification = async (
                 });
                 return;
             }
+        }
+
+        if (typeof language !== "string") {
+            if (req.file?.path && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            res.status(400).json({ message: "language must be a string" });
+            return;
         }
 
         // ── Image submission: file was already handled by multer ──────────────
@@ -134,8 +142,8 @@ export const submitVerification = async (
             userId: req.userId,
             input: {
                 type: submissionType,
-                language: (language as string).trim() || "en",
-                source: (source as string).trim(),
+                language: language.trim() || "en",
+                source: source.trim(),
             },
             content,
             extractedData: parsedExtractedData,

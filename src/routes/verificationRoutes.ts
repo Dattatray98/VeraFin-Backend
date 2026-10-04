@@ -1,6 +1,4 @@
 import { Router } from "express";
-import type { Request, Response, NextFunction } from "express";
-
 import {
     submitVerification,
     getVerification,
@@ -10,44 +8,9 @@ import {
 } from "../controllers/verificationController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
-import { upload, uploadAudio } from "../middleware/uploadMiddleware.js";
+import { parseContentUpload } from "../middleware/uploadMiddleware.js";
 
 const router = Router();
-
-// ─── Helper: wrap multer errors into JSON responses ───────────────────────────
-
-/**
- * Accepts either an image (JPG/JPEG/PNG/WEBP) OR an audio file (MP3/M4A/WAV/WEBM/OGG)
- * on the same "image" / "audio" field names.
- * multer.any() is intentionally NOT used — we use a custom wrapper that tries
- * image first, then audio, so that proper MIME errors are returned per type.
- */
-function handleUpload(req: Request, res: Response, next: NextFunction): void {
-    // Try image field first
-    upload.single("image")(req, res, (imgErr: unknown) => {
-        if (!imgErr) {
-            // Image field parsed (or no file at all)
-            return next();
-        }
-
-        // Image parse failed — try audio field instead
-        uploadAudio.single("audio")(req, res, (audioErr: unknown) => {
-            if (audioErr) {
-                const message =
-                    audioErr instanceof Error
-                        ? audioErr.message
-                        : typeof audioErr === "string"
-                        ? audioErr
-                        : imgErr instanceof Error
-                        ? imgErr.message
-                        : "File upload error";
-                res.status(400).json({ message });
-                return;
-            }
-            next();
-        });
-    });
-}
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -78,7 +41,7 @@ router.get("/", protect, getVerificationHistory);
  *   Fields: language, source
  *   File field "audio": MP3 / M4A / WAV / WEBM / OGG (max 25 MB)
  */
-router.post("/submit", protect, handleUpload, submitVerification);
+router.post("/submit", protect, parseContentUpload, submitVerification);
 
 /**
  * GET /api/verification/:id

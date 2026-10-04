@@ -37,45 +37,7 @@ export interface IVerification extends Document {
     status: "pending" | "processing" | "completed" | "failed";
 
     /** Structured data extracted by LLM / OCR pipeline */
-    extractedData?: {
-        intent?: {
-            primary: string;
-            secondary: string[];
-            requested_action: string;
-            urgency: string;
-        };
-        links?: {
-            url: string;
-            domain: string;
-            context: string;
-            position: string;
-        }[];
-        keywords?: string[];
-        entities?: {
-            organizations: string[];
-            companies: string[];
-            financial_institutions: string[];
-            regulatory_bodies: string[];
-            people: string[];
-            locations: string[];
-        };
-        financial_information?: {
-            amounts: { value: string; currency: string; context: string }[];
-            payment_methods: string[];
-            upi_ids: string[];
-            account_numbers: string[];
-        };
-        claims?: {
-            claim: string;
-            claim_type: string;
-            subject: string;
-        }[];
-        risk_indicators?: {
-            indicator: string;
-            evidence: string;
-            severity: string;
-        }[];
-    };
+    extractedData?: unknown;
 
     /** Final verification result from LLM */
     result?: {

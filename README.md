@@ -8,6 +8,7 @@ The backend accepts a message from the frontend, extracts verification details w
 
 - Node.js 20 or newer
 - npm
+- MongoDB
 - Poppler command-line tools (`pdftotext` and `pdfinfo`) for PDF text extraction
 - A local Chroma server
 
@@ -31,7 +32,7 @@ npm start
 
 ## Configuration
 
-The server can start without environment variables. Add a `.env` file in the project root to configure optional settings:
+Copy `.env.example` to `.env` and replace the placeholders. `MONGO_URI` and `JWT_SECRET` are required. Text extraction, screenshot transcription, and embeddings require a Hugging Face token. Image bytes are sent to the configured vision model; the resulting text and verification prompts are sent to the selected LLM provider.
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
@@ -43,9 +44,12 @@ The server can start without environment variables. Add a `.env` file in the pro
 | `PDF_INPUT_DIRECTORY` | Folder watched for new PDFs | `data/inputdata` |
 | `CORS_ORIGIN` | Comma-separated allowed frontend origins, or `*` | `*` |
 | `LLM_PROVIDER` | LLM backend: `huggingface` or `ollama` | `huggingface` |
-| `HF_TOKEN` | Hugging Face token with Inference Providers permission | None |
+| `HF_TOKEN` | Hugging Face token with Inference Providers permission | Required for HF models |
 | `HF_MODEL` | Hugging Face chat model identifier | `deepseek-ai/DeepSeek-V4.1-Flash:novita` |
+| `HF_VISION_MODEL` | Hugging Face vision-language model for screenshot transcription | `Qwen/Qwen2.5-VL-3B-Instruct` |
 | `HF_EMBEDDING_MODEL` | Hugging Face feature-extraction model | `sentence-transformers/all-MiniLM-L6-v2` |
+| `MONGO_URI` | MongoDB connection string for users and verification history | Required |
+| `JWT_SECRET` | Secret used to validate authenticated API requests | Required |
 | `OLLAMA_URL` | Ollama server base URL | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Installed local Ollama model name | None |
 
@@ -55,19 +59,21 @@ For local Ollama text generation, set `LLM_PROVIDER=ollama` and provide `OLLAMA_
 
 ## API
 
-### `POST /api/verification/run`
+### `POST /api/verification/submit`
 
-Receives a frontend message, runs extraction, planning, Chroma vector retrieval, evidence analysis, risk assessment, and explanation, then returns the result. The backend console logs the incoming message and evidence retrieved from Chroma. Chroma is the only configured evidence source.
+Requires a bearer JWT. Text is submitted as JSON. Images use `multipart/form-data` and the `image` field. Both input types run through extraction, planning, Chroma retrieval, evidence analysis, risk assessment, and explanation. The endpoint returns a verification ID immediately; poll `GET /api/verification/:id` for the completed result. Chroma is the only configured evidence source.
 
 Request:
 
 ```json
 {
-  "message": "Your account will be blocked. Pay a verification fee now."
+  "language": "en",
+  "source": "whatsapp",
+  "raw_text": "Your account will be blocked. Pay a verification fee now."
 }
 ```
 
-The response includes the extracted verification input, plan, vector retrieval results, analysis, risk assessment, and explanation. Invalid or empty messages return HTTP 400. Model or verification errors return HTTP 503.
+Image requests include `language`, `source`, and an `image` file (JPEG, PNG, or WEBP, up to 10 MB). OCR extracts text before the same verification pipeline runs. The completed record contains extracted text, structured claims, plan, retrieval results, analysis, risk assessment, and explanation. Invalid requests return HTTP 400; processing failures are saved with status `failed`.
 
 ## Evidence database
 
@@ -86,11 +92,11 @@ Then run the backend with `npm run dev` and place PDFs directly in `data/inputda
 
 ## Current scope
 
-- Frontend text is processed by an LLM extraction step; images and OCR are not supported yet.
+- Text is processed by an LLM extraction step. Uploaded images use Hugging Face printed-text OCR before entering the same pipeline; handwritten text and complex document layouts can be misread.
 - Chroma is the only evidence source in the current verification flow; browser and structured database retrieval are not used.
 - Claim analysis uses the LLM to assess retrieved evidence. `supported` and `contradicted` results require IDs from retrieved evidence; absent or failed retrieval is not treated as proof that a claim is false.
 - Risk scoring uses prototype weights. Neither it nor the LLM-based analysis and explanation should be treated as a definitive fraud determination.
-- Screenshot OCR is not implemented. Scanned PDFs need a separate OCR step. A Hugging Face embedding provider and Hugging Face/Ollama text generation providers are available through the model functions.
+- Scanned PDFs still need a separate OCR step. A Hugging Face embedding provider and Hugging Face/Ollama text generation providers are available through the model functions.
 
 The project plan describes the broader intended system; this README describes the behavior currently present in the source code.
 

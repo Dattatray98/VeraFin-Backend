@@ -158,3 +158,4 @@ data/evidence/lancedb/
 /data/inputdata/*.pdf
 /data/chroma/
 /data/metadata/input-pdf-ingestion.json*
+FRONTEND_INTEGRATION.md

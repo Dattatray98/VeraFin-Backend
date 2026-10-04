@@ -2,7 +2,7 @@
  * Voice Service — Speech-to-Text Abstraction
  *
  * Converts uploaded audio files to text for the voice submission flow.
- * Currently a stub — replace with a real STT provider (e.g. Whisper, Google STT).
+ * Uses a configured speech-to-text-compatible API; fails closed when no service is configured.
  *
  * Required environment variable (to be set by LLM / audio team):
  *   STT_API_URL   — Speech-to-text API endpoint
@@ -10,7 +10,7 @@
  *   STT_MODEL     — Optional model ID (e.g. "whisper-1")
  */
 
-import fs from "fs";
+import { readFile } from "node:fs/promises";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,11 +40,8 @@ export const MAX_AUDIO_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 /**
  * Transcribe speech from an audio file to text.
  *
- * Replace this function body with a real STT provider call.
- * Recommended providers:
- *   - OpenAI Whisper:  POST https://api.openai.com/v1/audio/transcriptions
- *   - Google Cloud STT
- *   - Azure Cognitive Services
+ * The configured endpoint is expected to accept a multipart `file` and `model`
+ * and return JSON containing a `text` field.
  *
  * @param filePath Absolute path to the uploaded audio file
  * @param originalName Original filename (for MIME detection)
@@ -57,29 +54,11 @@ export async function transcribeAudio(
 ): Promise<STTResult> {
     const sttApiUrl = process.env.STT_API_URL;
 
-    // ── Stub mode ──────────────────────────────────────────────────────────────
     if (!sttApiUrl) {
-        console.warn(
-            "[VoiceService] STT_API_URL not set. Running in stub mode. " +
-            "Set STT_API_URL (and STT_API_KEY) in .env to enable real transcription."
-        );
-
-        // Verify file still exists
-        if (!fs.existsSync(filePath)) {
-            return {
-                success: false,
-                transcribedText: "",
-                error: `Audio file not found at path: ${filePath}`,
-            };
-        }
-
         return {
-            success: true,
-            transcribedText:
-                `[VOICE STUB] Transcription not configured. ` +
-                `Audio file "${originalName}" was received and stored. ` +
-                `Set STT_API_URL in .env to enable real speech-to-text.`,
-            language: language ?? "en",
+            success: false,
+            transcribedText: "",
+            error: "Voice transcription is not configured; set STT_API_URL to enable voice submissions",
         };
     }
 
@@ -88,9 +67,9 @@ export async function transcribeAudio(
         const sttApiKey = process.env.STT_API_KEY;
         const model = process.env.STT_MODEL ?? "whisper-1";
 
-        const audioBuffer = fs.readFileSync(filePath);
+        const audioBuffer = await readFile(filePath);
         const formData = new FormData();
-        formData.append("file", new Blob([audioBuffer]), originalName);
+        formData.append("file", new Blob([new Uint8Array(audioBuffer)]), originalName);
         formData.append("model", model);
         if (language) formData.append("language", language);
 
@@ -111,9 +90,12 @@ export async function transcribeAudio(
 
         const data = (await response.json()) as { text?: string };
 
+        const transcribedText = data.text?.trim() ?? "";
+        if (!transcribedText) throw new Error("STT service returned empty text");
+
         return {
             success: true,
-            transcribedText: data.text?.trim() ?? "[STT returned empty result]",
+            transcribedText,
             language,
         };
     } catch (err) {
