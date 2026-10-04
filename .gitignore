@@ -1,3 +1,6 @@
+# Uploaded files (never commit to git)
+uploads/
+
 # Logs
 logs
 *.log
