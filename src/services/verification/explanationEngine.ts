@@ -20,7 +20,8 @@ export const createExplanation = async (
             sourceUrl: item.sourceUrl,
             source: result.source,
             retrievedAt: item.retrievedAt,
-            isMock: item.isMock
+            isMock: item.isMock,
+            evidenceClass: item.evidenceClass
         }))
     );
 
@@ -28,6 +29,7 @@ export const createExplanation = async (
         "Write a clear, cautious explanation of this financial message verification result.",
         "Use only the supplied risk assessment, claim analysis, and evidence. Do not invent facts or sources.",
         "Do not call something fraud based only on missing evidence. Distinguish retrieval failure from no evidence found.",
+        "Use the deterministic risk decision and risk level as given. Missing evidence or failed retrieval must not raise risk. Explain risk and verification status separately.",
         "Return only valid JSON: {\"summary\":string,\"reasons\":string[],\"claimExplanations\":string[],\"recommendedActions\":string[]}",
         "claimExplanations must have one short explanation per claim, in the same order.",
         `Risk: ${JSON.stringify(risk)}`,
@@ -60,7 +62,13 @@ export const createExplanation = async (
 
     return {
         mode: "llm",
-        risk: { level: risk.level, score: risk.score },
+        risk: {
+            level: risk.level,
+            score: risk.score,
+            decision: risk.decision,
+            verificationStatus: risk.verificationStatus,
+            confidence: risk.confidence
+        },
         summary: content.summary,
         reasons: content.reasons as string[],
         claims: analysis.assessments.map((assessment, index) => ({

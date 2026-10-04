@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { generateEmbedding } from "../AI_Models/embeddingModel.js";
 import { beginEvidenceReplacement, countEvidenceChunks, hasEvidenceForDocument } from "./chromaEvidenceStore.js";
 import type { EvidenceChunkInput } from "../../types/evidence.js";
+import type { EvidenceClass } from "../../types/evidence.js";
 
 const execFile = promisify(execFileCallback);
 const INPUT_DIRECTORY = resolve(process.cwd(), process.env.PDF_INPUT_DIRECTORY ?? "data/inputdata");
@@ -19,10 +20,34 @@ const CHUNK_OVERLAP = 120;
 const STABILITY_CHECK_MS = 500;
 const STABILITY_CHECKS = 3;
 
+const parseEvidenceClass = (value: unknown, source: string): EvidenceClass => {
+    if (value !== "risk_evidence" && value !== "trust_reference") {
+        throw new Error(`${source} evidenceClass must be risk_evidence or trust_reference`);
+    }
+    return value;
+};
+
+const readPdfEvidenceClass = async (pdfPath: string): Promise<EvidenceClass> => {
+    const metadataPath = `${pdfPath}.metadata.json`;
+    try {
+        await waitUntilFileStable(metadataPath);
+        const metadata: unknown = JSON.parse(await readFile(metadataPath, "utf8"));
+        if (typeof metadata !== "object" || metadata === null || !("evidenceClass" in metadata)) {
+            throw new Error(`Add an evidenceClass field to ${basename(metadataPath)}`);
+        }
+        return parseEvidenceClass(metadata.evidenceClass, basename(metadataPath));
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+
+    return parseEvidenceClass(process.env.PDF_EVIDENCE_CLASS ?? "risk_evidence", "PDF_EVIDENCE_CLASS");
+};
+
 interface IngestedFileState {
     contentHash: string;
     documentId: string;
     chunkIds: string[];
+    evidenceClass?: EvidenceClass;
     status: "complete" | "failed";
     updatedAt: string;
     error?: string;
@@ -127,8 +152,9 @@ const processPdf = async (filePath: string, state: IngestionState): Promise<void
     if (bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("File does not have a valid PDF signature");
 
     const contentHash = sha256(bytes);
+    const evidenceClass = await readPdfEvidenceClass(filePath);
     const previous = state.files[relativePath];
-    if (previous?.status === "complete" && previous.contentHash === contentHash) {
+    if (previous?.status === "complete" && previous.contentHash === contentHash && previous.evidenceClass === evidenceClass) {
         if (await hasEvidenceForDocument(previous.documentId)) {
             console.log(`[PDF-INGEST] ${relativePath} | unchanged; skipped`);
             return;
@@ -169,7 +195,8 @@ const processPdf = async (filePath: string, state: IngestionState): Promise<void
                 retrievedAt,
                 chunkIndex,
                 pageNumber: chunk.pageNumber,
-                isMock: false
+                isMock: false,
+                evidenceClass
             };
             await replacement.storeChunk(evidenceChunk);
             chunks.push(evidenceChunk);
@@ -188,6 +215,7 @@ const processPdf = async (filePath: string, state: IngestionState): Promise<void
         contentHash,
         documentId,
         chunkIds: chunks.map((chunk) => chunk.id),
+        evidenceClass,
         status: "complete",
         updatedAt: new Date().toISOString()
     };
@@ -226,7 +254,13 @@ export const startInputPdfWatcher = async (): Promise<FSWatcher> => {
     await scanInputDirectory();
     const watcher = watch(INPUT_DIRECTORY, (_event, filename) => {
         const name = filename?.toString();
-        if (name && extname(name).toLowerCase() === ".pdf") enqueue(resolve(INPUT_DIRECTORY, name));
+        if (name) {
+            const lowerName = name.toLowerCase();
+            const pdfName = lowerName.endsWith(".pdf.metadata.json")
+                ? name.slice(0, -".metadata.json".length)
+                : name;
+            if (extname(pdfName).toLowerCase() === ".pdf") enqueue(resolve(INPUT_DIRECTORY, pdfName));
+        }
         void scanInputDirectory().catch((error: unknown) => console.error("[PDF-INGEST] folder scan failed", error));
     });
     watcher.on("error", (error) => console.error("[PDF-INGEST] folder watcher error", error));

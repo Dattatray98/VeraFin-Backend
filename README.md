@@ -42,6 +42,7 @@ Copy `.env.example` to `.env` and replace the placeholders. `MONGO_URI` and `JWT
 | `CHROMA_COLLECTION` | Verification evidence collection | `verafin_evidence` |
 | `CHROMA_TOKEN` | Optional token alias for `CHROMA_API_KEY` | None |
 | `PDF_INPUT_DIRECTORY` | Folder watched for new PDFs | `data/inputdata` |
+| `PDF_EVIDENCE_CLASS` | Default classification for PDFs without a metadata sidecar (`risk_evidence` or `trust_reference`) | `risk_evidence` |
 | `CORS_ORIGIN` | Comma-separated allowed frontend origins, or `*` | `*` |
 | `LLM_PROVIDER` | LLM backend: `huggingface` or `ollama` | `huggingface` |
 | `HF_TOKEN` | Hugging Face token with Inference Providers permission | Required for HF models |
@@ -54,6 +55,8 @@ Copy `.env.example` to `.env` and replace the placeholders. `MONGO_URI` and `JWT
 | `OLLAMA_MODEL` | Installed local Ollama model name | None |
 
 The backend initializes Chroma Cloud through the TypeScript `CloudClient` in `src/config/chroma.ts`. Set `CHROMA_API_KEY`, `CHROMA_TENANT`, and `CHROMA_DATABASE`; the collection is created on first use. `CHROMA_TOKEN` is accepted as an API key alias.
+
+PDFs are tagged `risk_evidence` by default because the current corpus is primarily risk guidance. For a mixed corpus, add a JSON sidecar next to each PDF named `<filename>.pdf.metadata.json`, with `{"evidenceClass":"trust_reference"}` for official reference material. Sidecar classification overrides `PDF_EVIDENCE_CLASS`; changing it causes that PDF to be re-ingested. The environment variable can classify a whole batch when files share one class.
 
 Keep API keys in the backend environment and do not commit `.env`. Chroma stores its persistent data in the path used when starting its server. The watcher keeps only hash/status metadata under `data/metadata/` and does not create extracted PDF copies.
 

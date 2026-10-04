@@ -59,6 +59,7 @@ export interface EvidenceItem {
     retrievedAt: string;
     content: string;
     isMock: boolean;
+    evidenceClass: "risk_evidence" | "trust_reference";
     documentId?: string;
     documentType?: string;
     sourceOrganization?: string;
@@ -99,21 +100,35 @@ export interface ClaimAssessment {
 export interface EvidenceAnalysis {
     mode: "llm";
     assessments: ClaimAssessment[];
+    riskEvidenceMatches: Array<{
+        evidenceId: string;
+        riskSignal: string;
+        explanation: string;
+    }>;
 }
 
 export type RiskLevel = "low" | "moderate" | "high";
 
 export interface RiskFactor {
-    source: "message_signal" | "verification";
+    source: "message_signal" | "risk_evidence" | "verification";
     name: string;
     description: string;
     points: number;
 }
 
 export interface RiskAssessment {
-    mode: "mock";
+    mode: "deterministic";
     score: number;
     level: RiskLevel;
+    decision: "VERIFIED_SAFE" | "LOW_RISK_UNVERIFIED" | "MEDIUM_RISK" | "HIGH_RISK";
+    verificationStatus: "VERIFIED" | "UNVERIFIED" | "UNAVAILABLE" | "RISK_SUPPORTED";
+    verificationScore?: number;
+    confidence: number;
+    riskEvidenceFound: boolean;
+    trustEvidenceFound: boolean;
+    verifiedClaims: string[];
+    unverifiedClaims: string[];
+    contradictedClaims: string[];
     factors: RiskFactor[];
     limitations: string[];
     interpretation: string;
@@ -134,6 +149,7 @@ export interface ExplanationEvidence {
     source: EvidenceSource;
     retrievedAt: string;
     isMock: boolean;
+    evidenceClass: "risk_evidence" | "trust_reference";
 }
 
 export interface VerificationExplanation {
@@ -141,6 +157,9 @@ export interface VerificationExplanation {
     risk: {
         level: RiskLevel;
         score: number;
+        decision: RiskAssessment["decision"];
+        verificationStatus: RiskAssessment["verificationStatus"];
+        confidence: number;
     };
     summary: string;
     reasons: string[];

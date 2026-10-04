@@ -439,7 +439,8 @@ export const getVerificationHistory = async (
             Verification.find(filter)
                 .select(
                     "_id status createdAt updatedAt input.type input.source content.extracted_text " +
-                    "result.overall_status result.risk_level result.explanation error"
+                    "result.overall_status result.risk_level result.risk_score result.decision " +
+                    "result.verification_status result.confidence result.explanation error"
                 )
                 .sort({ createdAt: -1 })
                 .skip(skip)

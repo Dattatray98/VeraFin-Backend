@@ -1,3 +1,5 @@
+export type EvidenceClass = "risk_evidence" | "trust_reference";
+
 export interface EvidenceChunkInput {
     id: string;
     vector: number[];
@@ -13,6 +15,7 @@ export interface EvidenceChunkInput {
     chunkIndex: number;
     pageNumber: number | null;
     isMock: boolean;
+    evidenceClass?: EvidenceClass;
     pdfUrl?: string;
     sourcePage?: string;
     contentHash?: string;
@@ -22,4 +25,5 @@ export interface EvidenceChunk extends EvidenceChunkInput {}
 
 export interface EvidenceSearchHit extends EvidenceChunk {
     distance: number;
+    evidenceClass: EvidenceClass;
 }

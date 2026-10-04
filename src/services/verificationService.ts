@@ -167,7 +167,7 @@ export async function runVerificationPipeline(verificationId: string): Promise<P
         currentStage = "risk_assessment";
         stageStartedAt = Date.now();
         logPipelineEvent(verificationId, currentStage, "started");
-        const risk = assessRisk(extracted.riskSignals, analysis);
+        const risk = assessRisk(extracted.riskSignals, analysis, retrieval);
         logPipelineEvent(verificationId, currentStage, "completed", {
             durationMs: Date.now() - stageStartedAt,
             score: risk.score,
@@ -184,12 +184,9 @@ export async function runVerificationPipeline(verificationId: string): Promise<P
             recommendationCount: explanation.recommendedActions.length
         });
 
-        const contradicted = analysis.assessments.some((item) => item.status === "contradicted");
-        const allSupported = analysis.assessments.length > 0 &&
-            analysis.assessments.every((item) => item.status === "supported");
-        const overallStatus: VerificationResult["overall_status"] = contradicted
+        const overallStatus: VerificationResult["overall_status"] = risk.decision === "HIGH_RISK"
             ? "suspicious"
-            : allSupported
+            : risk.decision === "VERIFIED_SAFE"
                 ? "verified"
                 : analysis.assessments.length === 0
                     ? "inconclusive"
@@ -208,10 +205,20 @@ export async function runVerificationPipeline(verificationId: string): Promise<P
         const verificationResult: VerificationResult = {
             overall_status: overallStatus,
             risk_level: risk.level === "moderate" ? "medium" : risk.level,
+            risk_score: risk.score,
+            decision: risk.decision,
+            verification_status: risk.verificationStatus,
+            verification_score: risk.verificationScore,
+            confidence: risk.confidence,
+            risk_evidence_found: risk.riskEvidenceFound,
+            trust_evidence_found: risk.trustEvidenceFound,
+            verified_claims: risk.verifiedClaims,
+            unverified_claims: risk.unverifiedClaims,
+            contradicted_claims: risk.contradictedClaims,
             explanation: explanation.summary,
-            evidence: retrieval.results.flatMap((item) => item.evidence.map((evidence) =>
+            evidence: [...new Set(retrieval.results.flatMap((item) => item.evidence.map((evidence) =>
                 `${evidence.title}: ${evidence.content}`
-            )),
+            )))],
             warnings: [...new Set([...risk.limitations, explanation.notice])],
             recommendation: explanation.recommendedActions.join(" "),
             sources: foundSources.size > 0

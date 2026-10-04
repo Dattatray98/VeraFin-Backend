@@ -7,6 +7,11 @@ import type {
     VerificationPlan
 } from "../../types/verification.js";
 
+// Chroma cosine distance is lower for closer matches. Discard weak matches and
+// keep only a small number of the strongest chunks for each planned query.
+const MAX_COSINE_DISTANCE = 0.45;
+const MAX_EVIDENCE_PER_QUERY = 2;
+
 export const retrieveEvidence = async (
     plan: VerificationPlan
 ): Promise<EvidenceRetrieval> => {
@@ -15,23 +20,27 @@ export const retrieveEvidence = async (
     for (const query of plan.queries) {
         try {
             const vector = await generateEmbedding(query.query);
-            const hits = await searchEvidenceByVector(vector);
-            const evidence: EvidenceItem[] = hits.map((hit) => ({
-                id: hit.id,
-                title: hit.title,
-                sourceName: hit.sourceOrganization,
-                sourceUrl: hit.sourceUrl,
-                publishedAt: hit.publishedAt,
-                retrievedAt: new Date().toISOString(),
-                content: hit.content,
-                isMock: hit.isMock,
-                documentId: hit.documentId,
-                documentType: hit.documentType,
-                sourceOrganization: hit.sourceOrganization,
-                authorityLevel: hit.authorityLevel,
-                chunkIndex: hit.chunkIndex,
-                pageNumber: hit.pageNumber
-            }));
+            const hits = await searchEvidenceByVector(vector, 5);
+            const evidence: EvidenceItem[] = hits
+                .filter((hit) => hit.distance <= MAX_COSINE_DISTANCE)
+                .slice(0, MAX_EVIDENCE_PER_QUERY)
+                .map((hit) => ({
+                    id: hit.id,
+                    title: hit.title,
+                    sourceName: hit.sourceOrganization,
+                    sourceUrl: hit.sourceUrl,
+                    publishedAt: hit.publishedAt,
+                    retrievedAt: new Date().toISOString(),
+                    content: hit.content,
+                    isMock: hit.isMock,
+                    evidenceClass: hit.evidenceClass,
+                    documentId: hit.documentId,
+                    documentType: hit.documentType,
+                    sourceOrganization: hit.sourceOrganization,
+                    authorityLevel: hit.authorityLevel,
+                    chunkIndex: hit.chunkIndex,
+                    pageNumber: hit.pageNumber
+                }));
 
             results.push({
                 queryId: query.id,

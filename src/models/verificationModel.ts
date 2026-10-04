@@ -44,6 +44,15 @@ export interface IVerification extends Document {
         overall_status: "verified" | "unverified" | "suspicious" | "inconclusive";
         /** UI risk label shown in app cards and analysis result screen */
         risk_level: "high" | "medium" | "low" | "none";
+        risk_score?: number;
+        decision?: "VERIFIED_SAFE" | "LOW_RISK_UNVERIFIED" | "MEDIUM_RISK" | "HIGH_RISK";
+        verification_status?: "VERIFIED" | "UNVERIFIED" | "UNAVAILABLE" | "RISK_SUPPORTED";
+        verification_score?: number;
+        risk_evidence_found?: boolean;
+        trust_evidence_found?: boolean;
+        verified_claims?: string[];
+        unverified_claims?: string[];
+        contradicted_claims?: string[];
         confidence?: number;
         explanation: string;
         evidence: string[];

@@ -13,6 +13,14 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const readString = (value: unknown): value is string =>
     typeof value === "string" && value.trim().length > 0;
 
+const normalizeQuotedText = (value: string): string => value
+    .normalize("NFKC")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
 export const extractMessageForVerification = async (
     message: string
 ): Promise<VerificationPlannerInput> => {
@@ -69,7 +77,8 @@ export const extractMessageForVerification = async (
         return { url: item.url.trim(), domain: item.domain.trim() };
     });
 
-    const riskSignals: RiskSignal[] = parsed.riskSignals.map((item, index) => {
+    const normalizedMessage = normalizeQuotedText(message);
+    const riskSignals: RiskSignal[] = parsed.riskSignals.flatMap((item, index) => {
         if (
             !isObject(item) || !readString(item.indicator) ||
             !readString(item.evidence) ||
@@ -77,6 +86,8 @@ export const extractMessageForVerification = async (
         ) {
             throw new Error(`Extracted risk signal ${index + 1} is invalid`);
         }
+        const quotedEvidence = normalizeQuotedText(item.evidence);
+        if (quotedEvidence.length < 8 || !normalizedMessage.includes(quotedEvidence)) return [];
         return {
             indicator: item.indicator.trim(),
             evidence: item.evidence.trim(),
