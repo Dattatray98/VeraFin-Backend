@@ -150,15 +150,34 @@ export const submitVerification = async (
             status: "pending",
         });
 
+        console.info("[VERIFICATION_PIPELINE]", JSON.stringify({
+            timestamp: new Date().toISOString(),
+            verificationId: verification._id.toString(),
+            stage: "submission_saved",
+            status: "completed",
+            inputType: submissionType,
+            textCharacters: typeof raw_text === "string" ? raw_text.trim().length : 0,
+            uploadBytes: req.file?.size ?? 0
+        }));
+
         // ── Fire-and-forget: run pipeline asynchronously ──────────────────────
         // The client can poll GET /api/verification/:id for status updates.
+        console.info("[VERIFICATION_PIPELINE]", JSON.stringify({
+            timestamp: new Date().toISOString(),
+            verificationId: verification._id.toString(),
+            stage: "pipeline_enqueued",
+            status: "completed"
+        }));
         setImmediate(() => {
             runVerificationPipeline(verification._id.toString()).catch((err) => {
-                console.error(
-                    "[Controller] Background pipeline error for",
-                    verification._id,
-                    err
-                );
+                const message = err instanceof Error ? err.message : "Unexpected background pipeline error";
+                console.error("[VERIFICATION_PIPELINE]", JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    verificationId: verification._id.toString(),
+                    stage: "pipeline",
+                    status: "failed",
+                    error: message.slice(0, 300)
+                }));
             });
         });
 

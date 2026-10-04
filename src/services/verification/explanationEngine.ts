@@ -56,6 +56,8 @@ export const createExplanation = async (
         throw new Error("LLM returned an invalid explanation");
     }
 
+    const claimExplanations = content.claimExplanations as string[];
+
     return {
         mode: "llm",
         risk: { level: risk.level, score: risk.score },
@@ -64,7 +66,7 @@ export const createExplanation = async (
         claims: analysis.assessments.map((assessment, index) => ({
             claim: assessment.claim,
             status: assessment.status,
-            explanation: content.claimExplanations[index] as string | undefined ?? assessment.explanation,
+            explanation: claimExplanations[index] ?? assessment.explanation,
             evidenceIds: assessment.evidenceIds
         })),
         evidence,
