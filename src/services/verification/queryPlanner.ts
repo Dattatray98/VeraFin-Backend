@@ -1,52 +1,56 @@
+import { generateText } from "../AI_Models/llmModel.js";
 import type {
-    EvidenceSource,
     VerificationPlan,
     VerificationPlannerInput,
     VerificationQuery
 } from "../../types/verification.js";
 
-const claimSources: EvidenceSource[] = ["vector_db", "browser_api"];
-
-export const createVerificationPlan = (
+export const createVerificationPlan = async (
     input: VerificationPlannerInput
-): VerificationPlan => {
-    const queries: VerificationQuery[] = [];
+): Promise<VerificationPlan> => {
+    const prompt = [
+        "Create a verification query plan from the provided JSON input.",
+        "Return only valid JSON in this shape:",
+        '{"queries":[{"id":"query-1","query":"...","source":"vector_db","target":{"type":"claim|entity|domain","value":"..."},"purpose":"..."}]}',
+        "Use only the vector_db source. Create queries for relevant claims, entities, and links that can be searched in the evidence vector database.",
+        "A missing result must not be treated as proof that a claim is false.",
+        `Input: ${JSON.stringify(input)}`
+    ].join("\n");
+    const response = await generateText(prompt);
 
-    for (const claim of input.claims) {
-        for (const source of claimSources) {
-            queries.push({
-                id: `query-${queries.length + 1}`,
-                query: source === "vector_db"
-                    ? `Find authoritative evidence relevant to this claim: ${claim.claim}`
-                    : `Find current public information related to this claim: ${claim.claim}`,
-                source,
-                target: { type: "claim", value: claim.claim },
-                purpose: source === "vector_db"
-                    ? `Compare the claim with trusted stored documents (${claim.claim_type}).`
-                    : `Check for recent public information; treat search results as external evidence (${claim.claim_type}).`
-            });
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(response);
+    } catch {
+        throw new Error("LLM returned invalid JSON for the verification plan");
+    }
+
+    if (typeof parsed !== "object" || parsed === null || !Array.isArray((parsed as { queries?: unknown }).queries)) {
+        throw new Error("LLM returned an invalid verification plan");
+    }
+
+    const queries = (parsed as { queries: unknown[] }).queries.map((item, index): VerificationQuery => {
+        if (typeof item !== "object" || item === null) {
+            throw new Error(`Verification query ${index + 1} is invalid`);
         }
-    }
+        const query = item as Record<string, unknown>;
+        const target = query.target as Record<string, unknown> | null;
+        if (
+            typeof query.id !== "string" || typeof query.query !== "string" ||
+            typeof query.purpose !== "string" || query.source !== "vector_db" ||
+            !target || typeof target.value !== "string" ||
+            (target.type !== "claim" && target.type !== "entity" && target.type !== "domain")
+        ) {
+            throw new Error(`Verification query ${index + 1} is invalid`);
+        }
+        return {
+            id: query.id,
+            query: query.query,
+            source: query.source,
+            purpose: query.purpose,
+            target: { type: target.type, value: target.value }
+        };
+    });
 
-    for (const entity of input.entities) {
-        queries.push({
-            id: `query-${queries.length + 1}`,
-            query: `Check whether ${entity.name} is a recognized ${entity.type}.`,
-            source: "structured_db",
-            target: { type: "entity", value: entity.name },
-            purpose: "Verify the entity against structured reference data."
-        });
-    }
-
-    for (const link of input.links) {
-        queries.push({
-            id: `query-${queries.length + 1}`,
-            query: `Check whether ${link.domain} is an official domain associated with the message's entities.`,
-            source: "structured_db",
-            target: { type: "domain", value: link.domain },
-            purpose: `Compare the supplied domain with known official domains. URL: ${link.url}`
-        });
-    }
-
-    return { mode: "mock", queries };
+    return { mode: "llm", queries };
 };

@@ -1,4 +1,5 @@
 import { searchEvidenceByVector } from "../evidence/lanceEvidenceStore.js";
+import { generateEmbedding } from "../AI_Models/embeddingModel.js";
 import type {
     EvidenceItem,
     EvidenceRetrieval,
@@ -7,38 +8,13 @@ import type {
 } from "../../types/verification.js";
 
 export const retrieveEvidence = async (
-    plan: VerificationPlan,
-    queryVectors: Record<string, number[]>
+    plan: VerificationPlan
 ): Promise<EvidenceRetrieval> => {
     const results: QueryRetrievalResult[] = [];
 
     for (const query of plan.queries) {
-        if (query.source !== "vector_db") {
-            results.push({
-                queryId: query.id,
-                source: query.source,
-                target: query.target,
-                outcome: "retrieval_failed",
-                evidence: [],
-                error: `No real retriever is configured for ${query.source}`
-            });
-            continue;
-        }
-
-        const vector = queryVectors[query.id];
-        if (!vector) {
-            results.push({
-                queryId: query.id,
-                source: query.source,
-                target: query.target,
-                outcome: "retrieval_failed",
-                evidence: [],
-                error: "A query embedding was not provided"
-            });
-            continue;
-        }
-
         try {
+            const vector = await generateEmbedding(query.query);
             const hits = await searchEvidenceByVector(vector);
             const evidence: EvidenceItem[] = hits.map((hit) => ({
                 id: hit.id,

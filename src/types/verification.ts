@@ -1,4 +1,4 @@
-export type EvidenceSource = "vector_db" | "structured_db" | "browser_api";
+export type EvidenceSource = "vector_db";
 
 export interface PlannerClaim {
     claim: string;
@@ -41,7 +41,7 @@ export interface VerificationQuery {
 }
 
 export interface VerificationPlan {
-    mode: "mock";
+    mode: "llm";
     queries: VerificationQuery[];
 }
 
@@ -97,7 +97,7 @@ export interface ClaimAssessment {
 }
 
 export interface EvidenceAnalysis {
-    mode: "preliminary";
+    mode: "llm";
     assessments: ClaimAssessment[];
 }
 
@@ -137,7 +137,7 @@ export interface ExplanationEvidence {
 }
 
 export interface VerificationExplanation {
-    mode: "mock";
+    mode: "llm";
     risk: {
         level: RiskLevel;
         score: number;
