@@ -21,13 +21,19 @@
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.30",
-    "@lancedb/lancedb": "^0.39.0",
-    "cloudflare": "github:cloudflare/cloudflare-typescript",
+    "@types/multer": "^2.3.0",
+    "bcryptjs": "^3.0.3",
+    "cloudflare": "^7.2.0",
     "dotenv": "^18.0.5",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.4",
+    "multer": "^2.4.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"

@@ -13,6 +13,9 @@ export interface EvidenceChunkInput {
     chunkIndex: number;
     pageNumber: number | null;
     isMock: boolean;
+    pdfUrl?: string;
+    sourcePage?: string;
+    contentHash?: string;
 }
 
 export interface EvidenceChunk extends EvidenceChunkInput {}

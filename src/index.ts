@@ -2,7 +2,8 @@ import "dotenv/config";
 import express from 'express';
 import type { Request, Response } from 'express';
 import { createVerificationPlan } from "./services/verification/queryPlanner.js";
-import { retrieveEvidence } from "./services/verification/lanceEvidenceRetriever.js";
+import { retrieveEvidence } from "./services/verification/chromaEvidenceRetriever.js";
+import { startInputPdfWatcher } from "./services/evidence/inputPdfWatcher.js";
 import { analyzeEvidence } from "./services/verification/evidenceAnalyzer.js";
 import { assessRisk } from "./services/verification/riskEngine.js";
 import { createExplanation } from "./services/verification/explanationEngine.js";
@@ -60,7 +61,7 @@ app.post("/api/verification/run", async (req: Request, res: Response) => {
         const plan = await createVerificationPlan(input);
         const retrieval = await retrieveEvidence(plan);
         console.log(
-            "LanceDB retrieved evidence:",
+            "Chroma retrieved evidence:",
             retrieval.results.flatMap((result) => result.evidence)
         );
         const analysis = await analyzeEvidence(input, retrieval);
@@ -79,4 +80,7 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 
-app.listen(PORT, () => console.log(`server is runnning at : http://localhost:${PORT}`))
+app.listen(PORT, () => console.log(`server is runnning at : http://localhost:${PORT}`));
+void startInputPdfWatcher().catch((error: unknown) => {
+    console.error("[PDF-INGEST] could not start input folder watcher", error);
+});

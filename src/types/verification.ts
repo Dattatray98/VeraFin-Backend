@@ -77,7 +77,7 @@ export interface QueryRetrievalResult {
 }
 
 export interface EvidenceRetrieval {
-    mode: "lancedb";
+    mode: "chroma";
     results: QueryRetrievalResult[];
 }
 

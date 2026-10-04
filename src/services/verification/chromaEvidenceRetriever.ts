@@ -1,4 +1,4 @@
-import { searchEvidenceByVector } from "../evidence/lanceEvidenceStore.js";
+import { searchEvidenceByVector } from "../evidence/chromaEvidenceStore.js";
 import { generateEmbedding } from "../AI_Models/embeddingModel.js";
 import type {
     EvidenceItem,
@@ -47,10 +47,10 @@ export const retrieveEvidence = async (
                 target: query.target,
                 outcome: "retrieval_failed",
                 evidence: [],
-                error: error instanceof Error ? error.message : "LanceDB retrieval failed"
+                error: error instanceof Error ? error.message : "Chroma retrieval failed"
             });
         }
     }
 
-    return { mode: "lancedb", results };
+    return { mode: "chroma", results };
 };

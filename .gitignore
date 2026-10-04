@@ -148,3 +148,10 @@ project.md
 
 # Local evidence vector database
 data/evidence/lancedb/
+
+/test
+
+# User-provided source PDFs and local Chroma runtime data
+/data/inputdata/*.pdf
+/data/chroma/
+/data/metadata/input-pdf-ingestion.json*
