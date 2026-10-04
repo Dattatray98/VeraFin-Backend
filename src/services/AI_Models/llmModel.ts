@@ -18,6 +18,42 @@ const responseError = async (response: Response): Promise<Error> => {
     );
 };
 
+const readProviderError = (error: unknown): string => {
+    if (typeof error !== "object" || error === null) {
+        return error instanceof Error ? error.message : "Unknown inference error";
+    }
+
+    const value = error as {
+        message?: unknown;
+        httpResponse?: { status?: unknown; requestId?: unknown; body?: unknown };
+    };
+    const response = value.httpResponse;
+    const body = response?.body;
+    let detail: unknown;
+    if (typeof body === "object" && body !== null) {
+        const data = body as Record<string, unknown>;
+        detail = data.error ?? data.detail ?? data.message;
+        if (typeof detail === "object" && detail !== null && "message" in detail) {
+            detail = (detail as { message?: unknown }).message;
+        }
+    } else if (typeof body === "string" && body.trim()) {
+        detail = body;
+    }
+
+    const status = typeof response?.status === "number" ? `HTTP ${response.status}` : "HTTP status unavailable";
+    const requestId = typeof response?.requestId === "string" && response.requestId
+        ? `, requestId=${response.requestId}`
+        : "";
+    const rawDetail = typeof detail === "string" ? detail : typeof value.message === "string" ? value.message : "Inference request failed";
+    // Provider error text is useful for troubleshooting, but must not expose credentials or image payloads.
+    const safeDetail = rawDetail
+        .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+        .replace(/data:image\/[^;]+;base64,[^\s"']+/gi, "[image payload redacted]")
+        .slice(0, 500);
+
+    return `${status}${requestId}: ${safeDetail}`;
+};
+
 export class ControllerModel {
     constructor(private readonly prompt: string) {}
 
@@ -107,21 +143,28 @@ export const extractImageText = async (image: Buffer, mimeType: string, prompt: 
     if (!image.length) throw new Error("Image data is empty");
 
     const client = new InferenceClient(token);
-    const response = await client.chatCompletion({
-        model: process.env.HF_VISION_MODEL ?? "Qwen/Qwen2.5-VL-3B-Instruct",
-        messages: [{
-            role: "user",
-            content: [
-                { type: "text", text: prompt },
-                {
-                    type: "image_url",
-                    image_url: { url: `data:${mimeType};base64,${image.toString("base64")}` }
-                }
-            ]
-        }],
-        temperature: 0,
-        max_tokens: 2048
-    });
+    const model = process.env.HF_VISION_MODEL ?? "Qwen/Qwen2.5-VL-3B-Instruct";
+    let response: Awaited<ReturnType<typeof client.chatCompletion>>;
+    try {
+        response = await client.chatCompletion({
+            model,
+            provider: "featherless-ai",
+            messages: [{
+                role: "user",
+                content: [
+                    { type: "text", text: prompt },
+                    {
+                        type: "image_url",
+                        image_url: { url: `data:${mimeType};base64,${image.toString("base64")}` }
+                    }
+                ]
+            }],
+            temperature: 0,
+            max_tokens: 2048
+        });
+    } catch (error) {
+        throw new Error(`Hugging Face vision model ${model} failed (${readProviderError(error)})`);
+    }
 
     const text = response.choices[0]?.message.content?.trim();
     if (!text) throw new Error("Vision model returned no text");
